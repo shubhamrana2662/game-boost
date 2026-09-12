@@ -1,0 +1,45 @@
+# Builds an installable Android APK of Game Boost.
+#
+# Push to this repo (or press "Run workflow" in the Actions tab) and the
+# finished game_boost.apk is attached to the workflow run as an artifact -
+# download it, unlock Android sideloading (Developer options) and install it.
+
+name: Build APK
+
+on:
+  push:
+    branches: ['**']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Flutter
+        uses: flutter-actions/setup-flutter@v3
+        with:
+          channel: stable
+
+      - name: Resolve packages
+        run: flutter pub get
+
+      - name: Static analysis
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Build Android APK
+        run: flutter build apk --release
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: game-boost-apk
+          path: |
+            build/**/*.apk
+            build/android/*
+          if-no-files-found: error

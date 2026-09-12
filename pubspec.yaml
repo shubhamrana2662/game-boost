@@ -1,0 +1,20 @@
+name: game_boost
+description: >-
+  Game Boost - scan your games, boost their performance while you play and
+  automatically free up resources until the game is closed. Fully
+  customizable, like a classic game booster app.
+version: 1.0.0
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

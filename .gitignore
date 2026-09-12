@@ -1,0 +1,23 @@
+# Dart / Flutter build output
+.dart_tool/
+build/
+out/
+
+# Version management
+.dart-version
+
+# Pub
+.pub-cache/
+pubspec.lock
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Runtime data written by the app on-device (kept local, never committed)
+*.json.tmp
