@@ -85,6 +85,26 @@ class _GameBoostState extends State<GameBoostApp> implements GameBoostController
     if (settingsValue is Map) {
       app.settings = Settings.fromJson(settingsValue as Map<String, Object?>);
     }
+    if (app.games.isEmpty) {
+      // Default: Pre-configure Battlegrounds Mobile India (BGMI) with MAX POWER (5)
+      app.games.add(GameProfile(
+        name: 'Battlegrounds Mobile India (BGMI)',
+        patterns: [
+          'pubg.imobile',
+          'com.pubg.imobile',
+          'bgmi',
+          'battlegrounds',
+          'shadowtracker',
+          'tencent.ig',
+        ],
+        priority: 5, // MAX POWER (niceness -20, real-time I/O, OOM killer protection)
+        autoBoost: true,
+        pauseBackground: true,
+        memoryClean: true,
+        aggressiveClean: true,
+      ));
+      unawaited(saveData());
+    }
     app.loadedFromDisk = true;
     setState(() {});
     unawaited(doScan());

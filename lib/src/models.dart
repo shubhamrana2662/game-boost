@@ -75,11 +75,21 @@ class GameProfile {
 
 /// Global application settings.
 class Settings {
-  bool masterAutoBoost = false;
+  bool masterAutoBoost = true;
   bool confirmKill = true;
   bool lowEndMode = true; // budget phone optimizations (see README)
   int scanIntervalSec = 3;
-  List<String> pauseList = const []; // background app names to pause during a game
+  List<String> pauseList = const [
+    'instagram',
+    'facebook',
+    'chrome',
+    'whatsapp',
+    'youtube',
+    'tiktok',
+    'snapchat',
+    'discord',
+    'telegram',
+  ];
   List<String> killWhitelist = const [
     'game_boost',
     'systemd',
