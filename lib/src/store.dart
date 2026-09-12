@@ -134,7 +134,7 @@ class _JsonParser {
     return _parseNumber();
   }
 
-  Map<String, Object?> _parseObject() {
+  Object? _parseObject() {
     _pos++; // '{'
     final out = <String, Object?>{};
     skipWhitespace();
@@ -145,28 +145,28 @@ class _JsonParser {
     while (!isAtEnd) {
       skipWhitespace();
       final keyValue = _parseString();
-      if (identical(keyValue, _missing)) return out;
+      if (identical(keyValue, _missing)) return _missing;
       final key = keyValue as String;
       skipWhitespace();
       if (!isAtEnd && _text.codeUnitAt(_pos) == 0x3A) {
         _pos++;
       } else {
-        break;
+        return _missing;
       }
       final value = parseValue();
-      if (identical(value, _missing)) break;
+      if (identical(value, _missing)) return _missing;
       out[key] = value;
       skipWhitespace();
-      if (isAtEnd) break;
+      if (isAtEnd) return _missing;
       final c = _text.codeUnitAt(_pos);
       _pos++;
-      if (c == 0x7D) break; // '}'
-      if (c != 0x2C) break; // ','
+      if (c == 0x7D) return out; // '}'
+      if (c != 0x2C) return _missing; // ','
     }
-    return out;
+    return _missing;
   }
 
-  List<Object?> _parseArray() {
+  Object? _parseArray() {
     _pos++; // '['
     final out = <Object?>[];
     skipWhitespace();
@@ -176,16 +176,16 @@ class _JsonParser {
     }
     while (!isAtEnd) {
       final value = parseValue();
-      if (identical(value, _missing)) break;
+      if (identical(value, _missing)) return _missing;
       out.add(value);
       skipWhitespace();
-      if (isAtEnd) break;
+      if (isAtEnd) return _missing;
       final c = _text.codeUnitAt(_pos);
       _pos++;
-      if (c == 0x5D) break; // ']'
-      if (c != 0x2C) break; // ','
+      if (c == 0x5D) return out; // ']'
+      if (c != 0x2C) return _missing; // ','
     }
-    return out;
+    return _missing;
   }
 
   Object? _parseString() {

@@ -29,7 +29,9 @@ jobs:
           channel: stable
 
       - name: Generate Android platform files
-        run: flutter create . --platforms=android --org com.gameboost
+        run: |
+          flutter create . --platforms=android --org com.gameboost
+          rm -f test/widget_test.dart
 
       - name: Resolve packages
         run: flutter pub get

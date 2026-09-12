@@ -37,7 +37,7 @@ void main() {
 
   test('profileMatches uses all patterns', () {
     final game = GameProfile(name: 'Test', patterns: ['alpha', 'beta']);
-    final a = ProcessSummary(1, 'something', '', 0);
+    final a = ProcessSummary(1, 'alpha', '', 0);
     final b = ProcessSummary(2, 'BETA', '', 0);
     final c = ProcessSummary(3, 'gamma', '', 0);
     expect(profileMatches(game, a), isTrue);
