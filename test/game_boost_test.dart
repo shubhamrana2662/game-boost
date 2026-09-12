@@ -169,7 +169,7 @@ void main() {
     expect(packageForProfile(bgmi), equals('com.pubg.imobile'));
     final other = GameProfile(name: 'Chess', patterns: ['chess']);
     expect(isBgmiProfile(other), isFalse);
-    expect(packageForProfile(other), equals('com.pubg.imobile'));
+    expect(packageForProfile(other), equals(''));
   });
 
   test('memoryBar renders within bounds', () {
