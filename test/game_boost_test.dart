@@ -8,6 +8,7 @@ import 'package:game_boost/src/boost.dart';
 import 'package:game_boost/src/models.dart';
 import 'package:game_boost/src/proc.dart';
 import 'package:game_boost/src/store.dart';
+import 'package:game_boost/src/ui/widgets.dart';
 
 void main() {
   test('processNameFromCmdline extracts argv0 basename', () {

@@ -6,34 +6,6 @@
 /// process name (the executable part of `/proc/<pid>/cmdline`) and full
 /// command line. If any pattern matches, the game counts as "running".
 class GameProfile {
-  GameProfile({
-    required String name,
-    List<String> patterns = const [],
-    int priority = 4,
-    bool autoBoost = true,
-    bool pauseBackground = true,
-    bool memoryClean = true,
-    List<String> extraKill = const [],
-    bool detected = false,
-    bool aggressiveClean = true,
-    int timesBoosted = 0,
-    int lastBoostedAt = 0,
-  }) {
-    this.name = name;
-    this.patterns = List.of(patterns);
-    this.priority = priority < 1
-        ? 1
-        : (priority > 5 ? 5 : priority);
-    this.autoBoost = autoBoost;
-    this.pauseBackground = pauseBackground;
-    this.memoryClean = memoryClean;
-    this.extraKill = List.of(extraKill);
-    this.detected = detected;
-    this.aggressiveClean = aggressiveClean;
-    this.timesBoosted = timesBoosted;
-    this.lastBoostedAt = lastBoostedAt;
-  }
-
   String name;
   List<String> patterns;
   int priority; // 1 = gentle ... 5 = maximum
@@ -45,6 +17,22 @@ class GameProfile {
   bool aggressiveClean; // drop kernel page caches during boost cycles
   int timesBoosted;
   int lastBoostedAt;
+
+  GameProfile({
+    required this.name,
+    List<String>? patterns,
+    int priority = 4,
+    this.autoBoost = true,
+    this.pauseBackground = true,
+    this.memoryClean = true,
+    List<String>? extraKill,
+    this.detected = false,
+    this.aggressiveClean = true,
+    this.timesBoosted = 0,
+    this.lastBoostedAt = 0,
+  })  : patterns = patterns != null ? List.of(patterns) : [],
+        extraKill = extraKill != null ? List.of(extraKill) : [],
+        priority = priority < 1 ? 1 : (priority > 5 ? 5 : priority);
 
   /// Human readable list of patterns for the editor screen.
   String patternsSummary() {
@@ -72,13 +60,13 @@ class GameProfile {
     return GameProfile(
       name: _str(json['name'], 'Unknown'),
       patterns: _strList(json['patterns']),
-      priority: _int(json['priority'], 3),
-      autoBoost: _bool(json['autoBoost'], false),
-      pauseBackground: _bool(json['pauseBackground'], false),
-      memoryClean: _bool(json['memoryClean'], false),
+      priority: _int(json['priority'], 4),
+      autoBoost: _bool(json['autoBoost'], true),
+      pauseBackground: _bool(json['pauseBackground'], true),
+      memoryClean: _bool(json['memoryClean'], true),
       extraKill: _strList(json['extraKill']),
       detected: _bool(json['detected'], false),
-      aggressiveClean: _bool(json['aggressiveClean'], false),
+      aggressiveClean: _bool(json['aggressiveClean'], true),
       timesBoosted: _int(json['timesBoosted'], 0),
       lastBoostedAt: _int(json['lastBoostedAt'], 0),
     );
@@ -116,7 +104,8 @@ class Settings {
     s.masterAutoBoost = _bool(json['masterAutoBoost'], false);
     s.confirmKill = _bool(json['confirmKill'], true);
     s.lowEndMode = _bool(json['lowEndMode'], true);
-    s.scanIntervalSec = _int(json['scanIntervalSec'], 3).clamp(2, 15) as int;
+    final interval = _int(json['scanIntervalSec'], 3);
+    s.scanIntervalSec = interval < 2 ? 2 : (interval > 15 ? 15 : interval);
     s.pauseList = List.of(_strList(json['pauseList']));
     final wl = _strList(json['killWhitelist']);
     if (wl.isNotEmpty) s.killWhitelist = wl;
@@ -164,27 +153,27 @@ class AppState {
 
 /// Shared JSON helpers (used by [GameProfile.toJson]/[fromJson]).
 String _str(Object? v, String fallback) {
-  if (v is String s) return s;
+  if (v is String) return v;
   return fallback;
 }
 
 int _int(Object? v, int fallback) {
-  if (v is num n) return n.toInt();
-  if (v is String s) return int.tryParse(s) ?? fallback;
+  if (v is num) return v.toInt();
+  if (v is String) return int.tryParse(v) ?? fallback;
   return fallback;
 }
 
 bool _bool(Object? v, bool fallback) {
-  if (v is bool b) return b;
-  if (v is num n) return n != 0;
+  if (v is bool) return v;
+  if (v is num) return v != 0;
   return fallback;
 }
 
 List<String> _strList(Object? v) {
-  if (!(v is List)) return [];
+  if (v is! List) return [];
   final out = <String>[];
-  for (Object? item in (v as List)) {
-    if (item is String s && s.isNotEmpty && !out.contains(s)) out.add(s);
+  for (final item in v) {
+    if (item is String && item.isNotEmpty && !out.contains(item)) out.add(item);
   }
   return out;
 }

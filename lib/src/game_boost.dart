@@ -64,14 +64,16 @@ class _GameBoostState extends State<GameBoostApp> implements GameBoostController
   Future<void> initAsync() async {
     _loaded = true;
     final saved = await loadJson();
-    if (saved['games'] is List list) {
-      for (final entry in list) {
-        if (!(entry is Map)) continue;
+    final gamesValue = saved['games'];
+    if (gamesValue is List) {
+      for (final entry in gamesValue) {
+        if (entry is! Map) continue;
         app.games.add(GameProfile.fromJson(entry as Map<String, Object?>));
       }
     }
-    if (saved['settings'] is Map map) {
-      app.settings = Settings.fromJson(map as Map<String, Object?>);
+    final settingsValue = saved['settings'];
+    if (settingsValue is Map) {
+      app.settings = Settings.fromJson(settingsValue as Map<String, Object?>);
     }
     app.loadedFromDisk = true;
     setState(() {});

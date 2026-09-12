@@ -66,8 +66,9 @@ String memoryBar(MemoryStats memory) {
   const int width = 18;
   var used = 0;
   if (memory.totalKb > 0) {
-    used = (((memory.totalKb - memory.freeKb) * width) ~/ memory.totalKb)
-        .clamp(0, width) as int;
+    used = ((memory.totalKb - memory.freeKb) * width) ~/ memory.totalKb;
+    if (used < 0) used = 0;
+    if (used > width) used = width;
   }
   final out = StringBuffer();
   for (var i = 0; i < used; i++) {

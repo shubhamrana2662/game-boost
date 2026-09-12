@@ -20,16 +20,15 @@ void _writeValue(StringBuffer out, Object? value) {
   } else if (value is bool) {
     out.write(value ? 'true' : 'false');
   } else if (value is int) {
-    out.write((value as int).toString());
+    out.write(value.toString());
   } else if (value is double) {
-    final d = value as double;
-    out.write(d == d.truncate() ? '${d.truncate()}.0' : d.toString());
+    out.write(value == value.truncate() ? '${value.truncate()}.0' : value.toString());
   } else if (value is String) {
-    _writeString(out, value as String);
+    _writeString(out, value);
   } else if (value is List) {
     out.write('[');
     var first = true;
-    for (final item in value as List) {
+    for (final item in value) {
       if (!first) out.write(',');
       first = false;
       _writeValue(out, item);
@@ -38,7 +37,7 @@ void _writeValue(StringBuffer out, Object? value) {
   } else if (value is Map) {
     out.write('{');
     var first = true;
-    for (final entry in (value as Map).entries) {
+    for (final entry in value.entries) {
       if (!first) out.write(',');
       first = false;
       _writeString(out, entry.key.toString());
@@ -53,7 +52,8 @@ void _writeValue(StringBuffer out, Object? value) {
 
 void _writeString(StringBuffer out, String s) {
   out.write('"');
-  for (final code in s.runes) {
+  for (var i = 0; i < s.length; i++) {
+    final code = s.codeUnitAt(i);
     switch (code) {
       case 0x22:
         out.write(r'\u0022');
@@ -86,6 +86,7 @@ void _writeString(StringBuffer out, String s) {
   }
   out.write('"');
 }
+
 /// ---------------------------------------------------------------- decode ---
 /// Parses [text] into a JSON tree of Map<String, Object?>/List/Object?.
 /// Returns null on malformed input.
@@ -94,13 +95,15 @@ Object? jsonDecode(String text) {
   final value = p.parseValue();
   p.skipWhitespace();
   if (!p.isAtEnd) return null;
-  return value == _MISSING ? null : value;
+  if (identical(value, _missing)) return null;
+  return value;
 }
 
-const Object _MISSING = Object();
+/// Sentinel used internally to indicate missing/invalid tokens.
+final Object _missing = Object();
 
 class _JsonParser {
-  _JsonParser(String text) : _text = text;
+  _JsonParser(this._text);
 
   final String _text;
   int _pos = 0;
@@ -120,53 +123,45 @@ class _JsonParser {
 
   Object? parseValue() {
     skipWhitespace();
-    if (isAtEnd) return _MISSING;
-    switch (_text[_pos]) {
-      case '{':
-        return _parseObject();
-      case '[':
-        return _parseArray();
-      case '"':
-        return _parseString();
-      case 't':
-        return _parseLiteral('true', true);
-      case 'f':
-        return _parseLiteral('false', false);
-      case 'n':
-        return _parseLiteral('null', null);
-      default:
-        return _parseNumber();
-    }
+    if (isAtEnd) return _missing;
+    final ch = _text.codeUnitAt(_pos);
+    if (ch == 0x7B) return _parseObject(); // '{'
+    if (ch == 0x5B) return _parseArray();  // '['
+    if (ch == 0x22) return _parseString(); // '"'
+    if (ch == 0x74) return _parseLiteral('true', true);   // 't'
+    if (ch == 0x66) return _parseLiteral('false', false);  // 'f'
+    if (ch == 0x6E) return _parseLiteral('null', null);    // 'n'
+    return _parseNumber();
   }
 
   Map<String, Object?> _parseObject() {
     _pos++; // '{'
     final out = <String, Object?>{};
     skipWhitespace();
-    if (!isAtEnd && _text[_pos] == '}') {
+    if (!isAtEnd && _text.codeUnitAt(_pos) == 0x7D) {
       _pos++;
       return out;
     }
     while (!isAtEnd) {
       skipWhitespace();
       final keyValue = _parseString();
-      if (!(keyValue is String)) return _MISSING;
+      if (identical(keyValue, _missing)) return out;
       final key = keyValue as String;
       skipWhitespace();
-      if (!isAtEnd && _text[_pos] == ':') {
+      if (!isAtEnd && _text.codeUnitAt(_pos) == 0x3A) {
         _pos++;
       } else {
         break;
       }
       final value = parseValue();
-      if (value == _MISSING) return _MISSING;
+      if (identical(value, _missing)) break;
       out[key] = value;
       skipWhitespace();
       if (isAtEnd) break;
-      final c = _text[_pos];
+      final c = _text.codeUnitAt(_pos);
       _pos++;
-      if (c == '}') break;
-      if (c != ',') break;
+      if (c == 0x7D) break; // '}'
+      if (c != 0x2C) break; // ','
     }
     return out;
   }
@@ -175,20 +170,20 @@ class _JsonParser {
     _pos++; // '['
     final out = <Object?>[];
     skipWhitespace();
-    if (!isAtEnd && _text[_pos] == ']') {
+    if (!isAtEnd && _text.codeUnitAt(_pos) == 0x5D) {
       _pos++;
       return out;
     }
     while (!isAtEnd) {
       final value = parseValue();
-      if (value == _MISSING) return _MISSING;
+      if (identical(value, _missing)) break;
       out.add(value);
       skipWhitespace();
       if (isAtEnd) break;
-      final c = _text[_pos];
+      final c = _text.codeUnitAt(_pos);
       _pos++;
-      if (c == ']') break;
-      if (c != ',') break;
+      if (c == 0x5D) break; // ']'
+      if (c != 0x2C) break; // ','
     }
     return out;
   }
@@ -198,71 +193,69 @@ class _JsonParser {
     final buffer = StringBuffer();
     var closed = false;
     while (!isAtEnd) {
-      final c = _text[_pos];
+      final c = _text.codeUnitAt(_pos);
       _pos++;
-      if (c == '"') {
+      if (c == 0x22) { // '"'
         closed = true;
         break;
       }
-      if (c != r'\') {
-        buffer.write(c);
+      if (c != 0x5C) { // not '\'
+        buffer.writeCharCode(c);
         continue;
       }
       if (isAtEnd) break;
-      final esc = _text[_pos];
+      final esc = _text.codeUnitAt(_pos);
       _pos++;
       switch (esc) {
-        case '"':
-        case r'\':
-        case '/':
-          buffer.write(esc);
+        case 0x22: // "
+        case 0x5C: // \
+        case 0x2F: // /
+          buffer.writeCharCode(esc);
           break;
-        case 'b':
+        case 0x62: // b
           buffer.write('\b');
           break;
-        case 'f':
+        case 0x66: // f
           buffer.write('\f');
           break;
-        case 'n':
+        case 0x6E: // n
           buffer.write('\n');
           break;
-        case 'r':
+        case 0x72: // r
           buffer.write('\r');
           break;
-        case 't':
+        case 0x74: // t
           buffer.write('\t');
           break;
-        case 'u':
-          {
-            if (_pos + 4 > _text.length) break;
-            final hex = _text.substring(_pos, _pos + 4);
-            _pos += 4;
-            final code = int.parse(hex, radix: 16);
-            buffer.writeCharCode(code);
-            break;
-          }
+        case 0x75: // u
+          if (_pos + 4 > _text.length) break;
+          final hex = _text.substring(_pos, _pos + 4);
+          _pos += 4;
+          final code = int.parse(hex, radix: 16);
+          buffer.writeCharCode(code);
+          break;
         default:
-          buffer.write(esc);
+          buffer.writeCharCode(esc);
       }
     }
-    return closed ? buffer.toString() : _MISSING;
+    return closed ? buffer.toString() : _missing;
   }
 
   Object? _parseNumber() {
     final start = _pos;
     while (!isAtEnd) {
-      final c = _text[_pos];
-      if (c == '-' || c == '+' || c == '.' || c == 'e' || c == 'E' ||
-          (c >= '0' && c <= '9')) {
+      final c = _text.codeUnitAt(_pos);
+      if (c == 0x2D || c == 0x2B || c == 0x2E || c == 0x65 || c == 0x45 ||
+          (c >= 0x30 && c <= 0x39)) {
         _pos++;
       } else {
         break;
       }
     }
     final token = _text.substring(start, _pos);
-    if (token.isEmpty) return _MISSING;
+    if (token.isEmpty) return _missing;
     final asDouble = double.tryParse(token);
-    if (asDouble == null) return _MISSING;
+    if (asDouble == null) return _missing;
     if (!token.contains('.') && !token.contains('e') && !token.contains('E')) {
       return asDouble.truncate();
     }
@@ -270,8 +263,8 @@ class _JsonParser {
   }
 
   Object? _parseLiteral(String word, Object? value) {
-    if (_text.length - _pos < word.length) return _MISSING;
-    if (_text.substring(_pos, _pos + word.length) != word) return _MISSING;
+    if (_text.length - _pos < word.length) return _missing;
+    if (_text.substring(_pos, _pos + word.length) != word) return _missing;
     _pos += word.length;
     return value;
   }
@@ -284,7 +277,7 @@ Future<Map<String, Object?>> loadJson() async {
     if (!await file.exists()) return {};
     final text = await file.readAsString();
     final root = jsonDecode(text);
-    if (!(root is Map)) return {};
+    if (root is! Map) return {};
     return root as Map<String, Object?>;
   } catch (e) {
     return {};
