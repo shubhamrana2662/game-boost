@@ -122,7 +122,8 @@ int _rssKbFromStatus(String status) {
 bool patternMatches(String pattern, ProcessSummary process) {
   if (pattern.isEmpty) return false;
   final p = pattern.toLowerCase();
-  return process.name.contains(p) || process.cmdline.toLowerCase().contains(p);
+  return process.name.toLowerCase().contains(p) ||
+      process.cmdline.toLowerCase().contains(p);
 }
 
 /// Is [profile] matched by [process]?
