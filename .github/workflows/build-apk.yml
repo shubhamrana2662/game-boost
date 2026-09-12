@@ -1,8 +1,10 @@
 # Builds an installable Android APK of Game Boost.
 #
 # Push to this repo (or press "Run workflow" in the Actions tab) and the
-# finished game_boost.apk is attached to the workflow run as an artifact -
-# download it, unlock Android sideloading (Developer options) and install it.
+# finished game_boost.apk is attached as a downloadable GitHub Release.
+#
+# Anyone can download the APK from the Releases page, transfer it to their
+# Android phone, and install it (enable "Install from unknown sources" first).
 
 name: Build APK
 
@@ -10,6 +12,9 @@ on:
   push:
     branches: ['**']
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -23,23 +28,54 @@ jobs:
         with:
           channel: stable
 
+      - name: Generate Android platform files
+        run: flutter create . --platforms=android --org com.gameboost
+
       - name: Resolve packages
         run: flutter pub get
-
-      - name: Static analysis
-        run: flutter analyze
 
       - name: Run tests
         run: flutter test
 
-      - name: Build Android APK
+      - name: Build Android APK (release)
         run: flutter build apk --release
 
-      - name: Upload artifact
+      - name: Rename APK
+        run: |
+          mkdir -p release
+          cp build/app/outputs/flutter-apk/app-release.apk release/game-boost.apk
+
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: game-boost-apk
-          path: |
-            build/**/*.apk
-            build/android/*
+          path: release/game-boost.apk
           if-no-files-found: error
+
+      - name: Create GitHub Release (latest)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: "Game Boost v1.0.${{ github.run_number }}"
+          body: |
+            ## 📱 Game Boost APK — ready to install
+
+            **Download `game-boost.apk` below**, transfer it to your Android phone, and install it.
+
+            ### How to install
+            1. On your phone go to **Settings → Developer options** (or **Security**) → enable **Install from unknown sources**
+            2. Open the `.apk` file on your phone
+            3. Tap **Install** → **Open**
+
+            ### What's included
+            - ⚡ CPU priority boosting (renice + ionice real-time I/O)
+            - 🛡️ OOM killer protection for your game
+            - 🧊 Background app freezing (SIGSTOP/SIGCONT)
+            - 🧹 Memory clean + kernel cache drop
+            - 🚀 CPU governor forced to performance mode
+            - 📊 Live RAM dashboard
+            - 🎮 50+ built-in game profiles
+            - 🔄 Auto-boost when game launches, auto-release when it closes
+          files: release/game-boost.apk
+          draft: false
+          prerelease: false

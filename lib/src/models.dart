@@ -9,13 +9,13 @@ class GameProfile {
   GameProfile({
     required String name,
     List<String> patterns = const [],
-    int priority = 3,
-    bool autoBoost = false,
-    bool pauseBackground = false,
-    bool memoryClean = false,
+    int priority = 4,
+    bool autoBoost = true,
+    bool pauseBackground = true,
+    bool memoryClean = true,
     List<String> extraKill = const [],
     bool detected = false,
-    bool aggressiveClean = false,
+    bool aggressiveClean = true,
     int timesBoosted = 0,
     int lastBoostedAt = 0,
   }) {
@@ -90,7 +90,7 @@ class Settings {
   bool masterAutoBoost = false;
   bool confirmKill = true;
   bool lowEndMode = true; // budget phone optimizations (see README)
-  int scanIntervalSec = 5;
+  int scanIntervalSec = 3;
   List<String> pauseList = const []; // background app names to pause during a game
   List<String> killWhitelist = const [
     'game_boost',
@@ -116,7 +116,7 @@ class Settings {
     s.masterAutoBoost = _bool(json['masterAutoBoost'], false);
     s.confirmKill = _bool(json['confirmKill'], true);
     s.lowEndMode = _bool(json['lowEndMode'], true);
-    s.scanIntervalSec = _int(json['scanIntervalSec'], 5).clamp(2, 15) as int;
+    s.scanIntervalSec = _int(json['scanIntervalSec'], 3).clamp(2, 15) as int;
     s.pauseList = List.of(_strList(json['pauseList']));
     final wl = _strList(json['killWhitelist']);
     if (wl.isNotEmpty) s.killWhitelist = wl;

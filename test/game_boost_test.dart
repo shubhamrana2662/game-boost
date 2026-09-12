@@ -54,9 +54,23 @@ void main() {
 
   test('command builders produce the expected argv', () {
     expect(reniceArgs(123, -10).join(' '), equals('renice -n -10 -p 123'));
+    expect(ioniceArgs(42, 1).join(' '), equals('ionice -c 1 -p 42'));
     expect(signalArgs(7, '-STOP').join(' '), equals('kill -STOP 7'));
     expect(killArgs(9).join(' '), equals('kill -9 9'));
     expect(SYNC_ARGS.join(' '), equals('sync'));
+    expect(lowerPriorityArgs(99).join(' '), equals('renice -n 19 -p 99'));
+  });
+
+  test('oom and governor builders produce shell commands', () {
+    final oom = oomProtectArgs(42);
+    expect(oom.first, equals('sh'));
+    expect(oom.last.contains('oom_score_adj'), isTrue);
+    final gov = cpuGovernorArgs('performance');
+    expect(gov.first, equals('sh'));
+    expect(gov.last.contains('performance'), isTrue);
+    final drop = dropCachesArgs();
+    expect(drop.first, equals('sh'));
+    expect(drop.last.contains('drop_caches'), isTrue);
   });
 
   test('jsonEncode/jsonDecode round-trips complex data', () {
