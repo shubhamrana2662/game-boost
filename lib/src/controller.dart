@@ -21,10 +21,20 @@ abstract class GameBoostController {
   void requestScan();
   void toggleMasterBoost();
   void boostNow(String gameName);
+  void boostBgmiMax();
   void releaseAll();
 
   // --- profile editing ---
   void saveProfile(GameProfile profile, {bool remove = false});
+
+  // --- instant MAX actions (low-end phones: one-tap full power) ---
+  void maxBoostNow(String gameName);
+  void toggleMaxFps(String gameName);
+  void toggleMaxHz(String gameName);
+  void toggleBgmiTurbo(String gameName);
+  void cycleFpsTarget(String gameName);
+  void toggleLowEndMode();
+  void toggleUltraLowEnd();
 
   // --- discovery ---
   void addDetected(ProcessSummary proc);

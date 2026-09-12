@@ -96,6 +96,61 @@ Future<List<ProcessSummary>> scanProcesses() async {
   return result;
 }
 
+/// Foreground-only scan for low-end phones: just /proc cmdlines,
+/// no status-file RSS reads, no pm listing. ~3x cheaper than scanProcesses.
+/// Use for the background watch loop; keep full scanProcesses() for SCAN.
+Future<List<ProcessSummary>> scanForegroundOnly() async {
+  final result = <ProcessSummary>[];
+  final seen = <String>{};
+  try {
+    await for (final entity in Directory(_PROC).list()) {
+      if (entity is! Directory) continue;
+      final basename = entity.path.split('/').last;
+      final pid = int.tryParse(basename);
+      if (pid == null || pid <= 0) continue;
+      var cmdline = '';
+      try {
+        cmdline = await File('$_PROC/$basename/cmdline').readAsString();
+      } catch (_) {
+        continue;
+      }
+      final name = processNameFromCmdline(cmdline);
+      if (name == 'unknown' || seen.contains(name)) continue;
+      seen.add(name);
+      result.add(ProcessSummary(pid, name, cmdline, 0));
+      if (result.length >= 80) break; // cap work on weak CPUs
+    }
+  } catch (_) {}
+  if (result.isEmpty) {
+    // ps fallback limited to 80 rows
+    try {
+      final psRes = await Process.run('sh', ['-c', 'ps -A || ps -ef || ps']);
+      if (psRes.exitCode == 0 && psRes.stdout is String) {
+        final lines = (psRes.stdout as String).split('\n');
+        for (final line in lines) {
+          final trimmed = line.trim();
+          if (trimmed.isEmpty || trimmed.startsWith('USER') || trimmed.startsWith('PID')) continue;
+          final parts = trimmed.split(RegExp(r'\s+'));
+          if (parts.length < 2) continue;
+          int? pid;
+          for (final part in parts) {
+            final parsed = int.tryParse(part);
+            if (parsed != null && parsed > 0) { pid = parsed; break; }
+          }
+          final rawName = parts.last;
+          if (pid == null || rawName.isEmpty || rawName.startsWith('[') || rawName == 'ps') continue;
+          final clean = processNameFromCmdline(rawName);
+          if (clean == 'unknown' || seen.contains(clean)) continue;
+          seen.add(clean);
+          result.add(ProcessSummary(pid, clean, rawName, 0));
+          if (result.length >= 80) break;
+        }
+      }
+    } catch (_) {}
+  }
+  return result;
+}
+
 String _cleanPackageName(String pkg) {
   for (final known in KNOWN_GAMES) {
     for (final pattern in known.patterns) {

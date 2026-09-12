@@ -27,6 +27,27 @@ class SettingsView extends StatelessWidget {
       label('While ON, running games with “AUTO-BOOST” enabled are '
           'boosted automatically, and released when they close.'),
       Padding(padding: const EdgeInsets.only(top: 12),
+          child: sectionTitle('LOW-END PHONE MODE')),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(child: label('Budget phone: cap display pin at 90Hz, '
+              'lighter scans, stronger RAM clean.')),
+          toggleSwitch('LOW-END', app.settings.lowEndMode,
+              controller.toggleLowEndMode),
+        ],
+      ),
+      const SizedBox(height: 6),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(child: label('ULTRA (<3GB RAM / 60Hz screen): skip Hz '
+              'lock, max RAM guard. Enable this on very weak phones.')),
+          toggleSwitch('ULTRA', app.settings.ultraLowEnd,
+              controller.toggleUltraLowEnd),
+        ],
+      ),
+      Padding(padding: const EdgeInsets.only(top: 12),
           child: sectionTitle('SCAN EVERY')),
       Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,

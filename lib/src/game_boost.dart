@@ -102,6 +102,9 @@ class _GameBoostState extends State<GameBoostApp> implements GameBoostController
         pauseBackground: true,
         memoryClean: true,
         aggressiveClean: true,
+        maxFps: true, // disable battery-saver + game-mode PERFORMANCE
+        maxHz: true, // pin display to peak Hz (90 low-end / 120 normal)
+        bgmiTurbo: true, // standby-bucket ACTIVE + dexopt speed for BGMI,
       ));
       unawaited(saveData());
     }
@@ -183,10 +186,23 @@ class _GameBoostState extends State<GameBoostApp> implements GameBoostController
     });
   }
 
+  int _slowTicks = 0; // consecutive slow scans (self-throttle counter)
+  int _tickCount = 0; // every 2nd tick re-applies RAM clean on low-end
+
   Future<void> _watchTick() async {
-    if (!app.settings.masterAutoBoost) return;
+    if (!app.settings.masterAutoBoost) {
+      _watchLoop();
+      return;
+    }
+    final stopwatch = Stopwatch()..start();
     final snapshot = await scanProcesses();
+    // Keep the memory bar honest on every tick (cheap: one file read).
+    try {
+      app.memory = await readMemory();
+    } catch (_) {}
+    _tickCount++;
     var changed = false;
+    var anyBoosting = false;
     for (final game in app.games) {
       if (!game.autoBoost) continue;
       final runningNow = _anyMatch(game, snapshot);
@@ -198,13 +214,32 @@ class _GameBoostState extends State<GameBoostApp> implements GameBoostController
       } else if (!runningNow && wasRunning) {
         app.running[game.name] = false;
         changed = true;
-        if (app.pausedPids.isNotEmpty) {
-          unawaited(_releaseAsync());
+        unawaited(_releaseAsync());
+      } else if (runningNow && wasRunning) {
+        anyBoosting = true;
+        // LOW-END: game still open -> re-apply the cheap RAM clean every
+        // other tick so free RAM stays high during long BGMI sessions.
+        // (renice/governor/fps/hz are sticky; sync+drop_caches are not.)
+        if (app.settings.lowEndMode && _tickCount.isEven) {
+          unawaited(_reboostAsync(game));
         }
       }
     }
-    if (changed) setState(() {});
-    if (_watching && !_scanning) _watchLoop();
+    // Self-throttle: slow scans mean a weak CPU -> back the interval off
+    // (max 15s) so the booster itself never lags the game.
+    stopwatch.stop();
+    if (stopwatch.elapsedMilliseconds > 1500) {
+      _slowTicks++;
+      if (_slowTicks >= 2 && app.settings.scanIntervalSec < 15) {
+        app.settings.scanIntervalSec++;
+        _slowTicks = 0;
+        unawaited(saveData());
+      }
+    } else if (_slowTicks > 0) {
+      _slowTicks--;
+    }
+    if (changed || anyBoosting) setState(() {});
+    _watchLoop();
   }
 
   bool _anyMatch(GameProfile game, List<ProcessSummary> snapshot) {
@@ -223,6 +258,55 @@ class _GameBoostState extends State<GameBoostApp> implements GameBoostController
     unawaited(_boostAsync(game));
   }
 
+  /// One-tap BGMI MAX: finds (or creates) the BGMI profile, forces POWER 5 +
+  /// MAX-FPS + MAX-HZ + BGMI-TURBO on, then boosts immediately.
+  @override
+  void boostBgmiMax() {
+    var bgmi = _findBgmi();
+    if (bgmi == null) {
+      bgmi = GameProfile(
+        name: 'Battlegrounds Mobile India (BGMI)',
+        patterns: [
+          'pubg.imobile',
+          'com.pubg.imobile',
+          'bgmi',
+          'battlegrounds',
+          'shadowtracker',
+          'tencent.ig',
+        ],
+        priority: 5,
+        autoBoost: true,
+        pauseBackground: true,
+        memoryClean: true,
+        aggressiveClean: true,
+        maxFps: true,
+        maxHz: true,
+        bgmiTurbo: true,
+      );
+      app.games.add(bgmi);
+    } else {
+      bgmi.priority = 5;
+      bgmi.autoBoost = true;
+      bgmi.pauseBackground = true;
+      bgmi.memoryClean = true;
+      bgmi.aggressiveClean = true;
+      bgmi.maxFps = true;
+      bgmi.maxHz = true;
+      bgmi.bgmiTurbo = true;
+    }
+    unawaited(saveData());
+    app.running[bgmi.name] = true;
+    unawaited(_boostAsync(bgmi));
+  }
+
+  GameProfile? _findBgmi() {
+    for (final g in app.games) {
+      final n = g.name.toLowerCase();
+      if (n.contains('bgmi') || n.contains('battlegrounds')) return g;
+    }
+    return null;
+  }
+
   Future<void> _boostAsync(GameProfile game) async {
     final report = await applyBoost(app, game);
     app.status = report.message;
@@ -230,6 +314,124 @@ class _GameBoostState extends State<GameBoostApp> implements GameBoostController
     if (hints > 0) {
       app.status += ' (${hints} action(s) blocked by the OS - see README)';
     }
+    unawaited(saveData());
+    setState(() {});
+  }
+
+  /// Cheap keep-alive while a game session continues: flush writes +
+  /// drop kernel caches (the two RAM actions that decay over time).
+  /// Silent: only refreshes the memory bar + status line when it frees RAM.
+  Future<void> _reboostAsync(GameProfile game) async {
+    if (!game.memoryClean && !game.aggressiveClean) return;
+    var freed = false;
+    if (game.memoryClean) {
+      freed = await runCommand(SYNC_ARGS) || freed;
+    }
+    if (game.aggressiveClean || game.priority == 5) {
+      freed = await runCommand(dropCachesArgs()) || freed;
+    }
+    try {
+      app.memory = await readMemory();
+    } catch (_) {}
+    if (freed) {
+      app.status = '${game.name}: RAM refreshed - free ${formatKb(app.memory.freeKb)}';
+      setState(() {});
+    }
+  }
+
+  @override
+  void maxBoostNow(String gameName) {
+    var game = _findGame(gameName);
+    game ??= app.games.isNotEmpty ? app.games.first : null;
+    if (game == null) {
+      toast('Add BGMI first, then tap MAX BOOST.');
+      return;
+    }
+    // One tap = everything to MAX: POWER 5 + FPS + HZ + BGMI turbo.
+    game.priority = 5;
+    game.autoBoost = true;
+    game.pauseBackground = true;
+    game.memoryClean = true;
+    game.aggressiveClean = true;
+    game.maxFps = true;
+    game.maxHz = true;
+    game.bgmiTurbo = true;
+    app.running[game.name] = true;
+    unawaited(saveData());
+    unawaited(_boostAsync(game));
+  }
+
+  @override
+  void toggleMaxFps(String gameName) {
+    final game = _findGame(gameName);
+    if (game == null) return;
+    game.maxFps = !game.maxFps;
+    unawaited(saveData());
+    if (game.maxFps) {
+      app.running[game.name] = true;
+      unawaited(_boostAsync(game));
+    } else {
+      toast('${game.name}: MAX-FPS OFF.');
+    }
+  }
+
+  @override
+  void toggleMaxHz(String gameName) {
+    final game = _findGame(gameName);
+    if (game == null) return;
+    game.maxHz = !game.maxHz;
+    unawaited(saveData());
+    if (game.maxHz) {
+      app.running[game.name] = true;
+      unawaited(_boostAsync(game));
+    } else {
+      unawaited(_releaseAsync());
+      toast('${game.name}: display back to 60Hz.');
+    }
+  }
+
+  @override
+  void toggleBgmiTurbo(String gameName) {
+    final game = _findGame(gameName);
+    if (game == null) return;
+    game.bgmiTurbo = !game.bgmiTurbo;
+    unawaited(saveData());
+    if (game.bgmiTurbo) {
+      app.running[game.name] = true;
+      unawaited(_boostAsync(game));
+    } else {
+      toast('${game.name}: BGMI-TURBO OFF.');
+    }
+  }
+
+  @override
+  void cycleFpsTarget(String gameName) {
+    final game = _findGame(gameName);
+    if (game == null) return;
+    const steps = [0, 60, 90, 120];
+    final idx = steps.indexOf(game.fpsTarget);
+    game.fpsTarget = steps[(idx + 1) % steps.length];
+    game.maxFps = true;
+    // A steady 60fps still benefits from the panel pinned at its peak (60Hz
+    // panels stay at 60, 90Hz panels drop to 90, etc.). Only turn MAX-HZ off
+    // when the user explicitly chooses AUTO (fpsTarget == 0).
+    game.maxHz = game.fpsTarget > 0;
+    unawaited(saveData());
+    app.running[game.name] = true;
+    unawaited(_boostAsync(game));
+    toast('${game.name}: FPS target ${game.fpsTarget == 0 ? "AUTO" : "${game.fpsTarget} FPS"} - panel ${game.maxHz ? "pinned" : "default 60"}');
+  }
+
+  @override
+  void toggleLowEndMode() {
+    app.settings.lowEndMode = !app.settings.lowEndMode;
+    unawaited(saveData());
+    setState(() {});
+  }
+
+  @override
+  void toggleUltraLowEnd() {
+    app.settings.ultraLowEnd = !app.settings.ultraLowEnd;
     unawaited(saveData());
     setState(() {});
   }

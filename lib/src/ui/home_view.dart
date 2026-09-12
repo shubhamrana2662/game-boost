@@ -53,7 +53,32 @@ class _HomeViewState extends State<HomeView> {
   }
 
   Widget _actionRow() {
-    return Container(
+    GameProfile? bgmi;
+    for (final g in app.games) {
+      final n = g.name.toLowerCase();
+      if (n.contains('bgmi') || n.contains('battlegrounds')) { bgmi = g; break; }
+    }
+    final bgmiRunning = bgmi != null && (app.running[bgmi.name] ?? false);
+    return Column(
+      children: [
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            icon: Icon(bgmiRunning ? Icons.bolt : Icons.rocket_launch, size: 20),
+            label: Text(
+              bgmiRunning ? 'BGMI MAX ACTIVE - TAP TO RE-BOOST' : 'BOOST BGMI MAX (FPS + HZ + TURBO)',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: bgmiRunning ? Colors.orange[800] : Colors.green[700],
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+            onPressed: controller.boostBgmiMax,
+          ),
+        ),
+        const SizedBox(height: 8),
+    Container(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
@@ -97,6 +122,8 @@ class _HomeViewState extends State<HomeView> {
           ),
         ],
       ),
+    ),
+      ],
     );
   }
 
@@ -309,12 +336,36 @@ class _HomeViewState extends State<HomeView> {
                 ),
               ],
             ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                if (game.maxFps)
+                  tag('MAX-FPS', highlight: running)
+                else
+                  tag('fps off'),
+                if (game.maxHz)
+                  tag('MAX-HZ', highlight: running)
+                else
+                  tag('hz off'),
+                if (game.bgmiTurbo) tag('TURBO', highlight: running),
+                tag(game.fpsTarget == 0 ? 'AUTO Hz' : '${game.fpsTarget}Hz'),
+              ],
+            ),
             const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.end,
               children: [
                 miniButton('EDIT', () => controller.openEdit(game.name)),
-                const SizedBox(width: 8),
+                miniButton('FPS ${game.fpsTarget == 0 ? 'AUTO' : game.fpsTarget}',
+                    () => controller.cycleFpsTarget(game.name)),
+                miniButton(game.maxFps ? 'FPS ON' : 'FPS OFF',
+                    () => controller.toggleMaxFps(game.name)),
+                miniButton(game.maxHz ? 'HZ ON' : 'HZ OFF',
+                    () => controller.toggleMaxHz(game.name)),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: running ? Colors.orange[800] : Colors.green[700],
@@ -323,7 +374,6 @@ class _HomeViewState extends State<HomeView> {
                   onPressed: () => controller.boostNow(game.name),
                   child: Text(running ? 'RE-BOOST' : 'BOOST NOW'),
                 ),
-                const SizedBox(width: 8),
                 miniButton('REMOVE', () => controller.saveProfile(game, remove: true)),
               ],
             ),

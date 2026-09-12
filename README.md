@@ -52,6 +52,17 @@ every drop of performance for your game:
 | 7 | **Memory Flush** | `sync` | Flushes all pending disk writes |
 | 8 | **Cache Drop** | `echo 3 > /proc/sys/vm/drop_caches` | Frees kernel page/dentry/inode caches (POWER 5 or aggressive clean) |
 | 9 | **CPU Governor** | `echo performance > scaling_governor` | Forces all CPU cores to maximum frequency (POWER 4+) |
+| 10 | **MAX-FPS unlock** | `settings put global low_power 0` + Doze whitelist + `game_mode PERFORMANCE` | Disables battery-saver throttling, keeps the game out of Doze, puts the SoC in game-performance mode (POWER 5 or MAX-FPS toggle) |
+| 11 | **MAX-HZ display** | `settings put system peak_refresh_rate 90/120/144` + `min_refresh_rate 90/120` | Pins the panel to its peak Hz (auto-detected 60/90/120/144; 90 on Low-End mode) so BGMI can render 90/120fps; restored to 60Hz on release |
+| 12 | **BGMI TURBO** | `am set-standby-bucket com.pubg.imobile ACTIVE` + `cmd package compile -m speed` | Gives BGMI max background processing + speed-compiled code for faster map loads and smoother frame pacing |
+
+### 🚀 BOOST BGMI MAX button (one tap)
+
+The big green button on the home screen calls `boostBgmiMax()`: it finds (or
+creates) the BGMI profile, forces **POWER 5 + MAX-FPS + MAX-HZ + BGMI-TURBO**
+on, then boosts immediately. Per-game toggles for the same three features live
+in the game editor, and POWER 5 auto-enables FPS+Hz even if the toggles are
+off. One tap = maximum processing for BGMI on a low-end phone.
 
 When you stop playing, the app automatically:
 - Resumes all paused apps (`kill -CONT`)

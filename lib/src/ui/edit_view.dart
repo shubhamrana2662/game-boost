@@ -33,7 +33,7 @@ class EditView extends StatefulWidget {
   }
 
   static GameProfile _copy(GameProfile src) {
-    return GameProfile(
+    final c = GameProfile(
       name: src.name,
       patterns: List.of(src.patterns),
       priority: src.priority,
@@ -42,9 +42,15 @@ class EditView extends StatefulWidget {
       memoryClean: src.memoryClean,
       extraKill: List.of(src.extraKill),
       detected: src.detected,
+      aggressiveClean: src.aggressiveClean,
+      maxFps: src.maxFps,
+      maxHz: src.maxHz,
+      bgmiTurbo: src.bgmiTurbo,
+      fpsTarget: src.fpsTarget,
       timesBoosted: src.timesBoosted,
       lastBoostedAt: src.lastBoostedAt,
     );
+    return c;
   }
 }
 
@@ -125,6 +131,35 @@ class _EditState extends State<EditView> {
       toggleSwitch('MEMORY CLEAN & cache drop on start', draft.memoryClean, () {
         setState(() { draft.memoryClean = !draft.memoryClean; });
       }),
+      const SizedBox(height: 6),
+      toggleSwitch('MAX-FPS (no battery-saver, game-mode perf)', draft.maxFps, () {
+        setState(() { draft.maxFps = !draft.maxFps; });
+      }),
+      const SizedBox(height: 6),
+      toggleSwitch('MAX-HZ (keep 90/120Hz panel from dropping to 60)', draft.maxHz, () {
+        setState(() { draft.maxHz = !draft.maxHz; });
+      }),
+      const SizedBox(height: 6),
+      toggleSwitch('BGMI TURBO (standby ACTIVE + dexopt speed)', draft.bgmiTurbo, () {
+        setState(() { draft.bgmiTurbo = !draft.bgmiTurbo; });
+      }),
+      const SizedBox(height: 6),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(child: label('FPS TARGET: ' + (draft.fpsTarget == 0 ? 'AUTO' : '${draft.fpsTarget} FPS'))),
+          miniButton('CYCLE', () => setState(() {
+            const steps = [0, 60, 90, 120];
+            final idx = steps.indexOf(draft.fpsTarget);
+            draft.fpsTarget = steps[(idx + 1) % steps.length];
+            draft.maxFps = true;
+            // A steady 60fps still benefits from the panel pinned at its peak.
+            // Only turn MAX-HZ off when the user explicitly chooses AUTO (0).
+            draft.maxHz = draft.fpsTarget > 0;
+          })),
+        ],
+      ),
+      label('AUTO = phone decides. 60 = stable low-end, 90/120 = smoother if panel allows.'),
       Padding(
         padding: const EdgeInsets.only(top: 16, bottom: 4),
         child: sectionTitle('PROCESS / PACKAGE PATTERNS'),

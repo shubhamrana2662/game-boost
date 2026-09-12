@@ -15,6 +15,10 @@ class GameProfile {
   List<String> extraKill;
   bool detected;
   bool aggressiveClean; // drop kernel page caches during boost cycles
+  bool maxFps; // best-effort: disable battery-saver + game-mode performance
+  bool maxHz; // best-effort: lock display to peak refresh rate (120/144Hz)
+  bool bgmiTurbo; // extra BGMI processing: standby-bucket ACTIVE + dexopt speed
+  int fpsTarget; // 0=auto, else requested FPS ceiling (30/60/90/120)
   int timesBoosted;
   int lastBoostedAt;
 
@@ -28,11 +32,16 @@ class GameProfile {
     List<String>? extraKill,
     this.detected = false,
     this.aggressiveClean = true,
+    this.maxFps = false,
+    this.maxHz = false,
+    this.bgmiTurbo = false,
+    this.fpsTarget = 0,
     this.timesBoosted = 0,
     this.lastBoostedAt = 0,
   })  : patterns = patterns != null ? List.of(patterns) : [],
         extraKill = extraKill != null ? List.of(extraKill) : [],
-        priority = priority < 1 ? 1 : (priority > 5 ? 5 : priority);
+        priority = priority < 1 ? 1 : (priority > 5 ? 5 : priority),
+        fpsTarget = _snapFps(fpsTarget);
 
   /// Human readable list of patterns for the editor screen.
   String patternsSummary() {
@@ -51,6 +60,10 @@ class GameProfile {
       'extraKill': extraKill,
       'detected': detected,
       'aggressiveClean': aggressiveClean,
+      'maxFps': maxFps,
+      'maxHz': maxHz,
+      'bgmiTurbo': bgmiTurbo,
+      'fpsTarget': fpsTarget,
       'timesBoosted': timesBoosted,
       'lastBoostedAt': lastBoostedAt,
     };
@@ -67,6 +80,10 @@ class GameProfile {
       extraKill: _strList(json['extraKill']),
       detected: _bool(json['detected'], false),
       aggressiveClean: _bool(json['aggressiveClean'], true),
+      maxFps: _bool(json['maxFps'], false),
+      maxHz: _bool(json['maxHz'], false),
+      bgmiTurbo: _bool(json['bgmiTurbo'], false),
+      fpsTarget: _int(json['fpsTarget'], 0),
       timesBoosted: _int(json['timesBoosted'], 0),
       lastBoostedAt: _int(json['lastBoostedAt'], 0),
     );
@@ -78,6 +95,7 @@ class Settings {
   bool masterAutoBoost = true;
   bool confirmKill = true;
   bool lowEndMode = true; // budget phone optimizations (see README)
+  bool ultraLowEnd = false; // <3GB RAM: ultra-strict guard (see README)
   int scanIntervalSec = 3;
   List<String> pauseList = const [
     'instagram',
@@ -103,6 +121,7 @@ class Settings {
       'masterAutoBoost': masterAutoBoost,
       'confirmKill': confirmKill,
       'lowEndMode': lowEndMode,
+      'ultraLowEnd': ultraLowEnd,
       'scanIntervalSec': scanIntervalSec,
       'pauseList': pauseList,
       'killWhitelist': killWhitelist,
@@ -114,6 +133,7 @@ class Settings {
     s.masterAutoBoost = _bool(json['masterAutoBoost'], false);
     s.confirmKill = _bool(json['confirmKill'], true);
     s.lowEndMode = _bool(json['lowEndMode'], true);
+    s.ultraLowEnd = _bool(json['ultraLowEnd'], false);
     final interval = _int(json['scanIntervalSec'], 3);
     s.scanIntervalSec = interval < 2 ? 2 : (interval > 15 ? 15 : interval);
     s.pauseList = List.of(_strList(json['pauseList']));
@@ -186,6 +206,17 @@ List<String> _strList(Object? v) {
     if (item is String && item.isNotEmpty && !out.contains(item)) out.add(item);
   }
   return out;
+}
+
+/// Snap an FPS target to a supported step (0=auto, else 30/60/90/120).
+int _snapFps(int v) {
+  if (v <= 0) return 0;
+  const steps = [30, 60, 90, 120];
+  var best = steps[0];
+  for (final s in steps) {
+    if ((v - s).abs() < (v - best).abs()) best = s;
+  }
+  return best;
 }
 
 /// Render a byte count as a friendly string ("1.2 GB").

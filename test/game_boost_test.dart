@@ -119,6 +119,9 @@ void main() {
       memoryClean: false,
       extraKill: ['gallery'],
       detected: true,
+      maxFps: true,
+      maxHz: true,
+      bgmiTurbo: true,
       timesBoosted: 3,
     );
     final restored = GameProfile.fromJson(profile.toJson());
@@ -130,6 +133,9 @@ void main() {
     expect(restored.memoryClean, isFalse);
     expect(restored.extraKill.join(','), equals('gallery'));
     expect(restored.detected, isTrue);
+    expect(restored.maxFps, isTrue);
+    expect(restored.maxHz, isTrue);
+    expect(restored.bgmiTurbo, isTrue);
     expect(restored.timesBoosted, equals(3));
   });
 
@@ -143,6 +149,27 @@ void main() {
     expect(formatKb(0), equals('0 B'));
     expect(formatKb(1), equals('1.0 KB'));
     expect(formatKb(1024 * 1024), equals('1.0 GB'));
+  });
+
+  test('fps/hz/bgmi builders pin correct values', () {
+    final fps = fpsUnlockArgs('com.pubg.imobile');
+    expect(fps.first, equals('sh'));
+    expect(fps.last.contains('low_power 0'), isTrue);
+    expect(fps.last.contains('com.pubg.imobile'), isTrue);
+    expect(hzLockArgs(120).last.contains('peak_refresh_rate 120'), isTrue);
+    expect(hzLockArgs(200).last.contains('peak_refresh_rate 144'), isTrue);
+    expect(hzLockArgs(60).last.contains('peak_refresh_rate 60'), isTrue);
+    expect(hzLockArgs(90).last.contains('peak_refresh_rate 90'), isTrue);
+    expect(hzRestoreArgs().last.contains('peak_refresh_rate 60'), isTrue);
+    final turbo = bgmiTurboArgs('com.pubg.imobile');
+    expect(turbo.last.contains('standby-bucket'), isTrue);
+    expect(turbo.last.contains('com.pubg.imobile'), isTrue);
+    final bgmi = GameProfile(name: 'BGMI', patterns: ['com.pubg.imobile']);
+    expect(isBgmiProfile(bgmi), isTrue);
+    expect(packageForProfile(bgmi), equals('com.pubg.imobile'));
+    final other = GameProfile(name: 'Chess', patterns: ['chess']);
+    expect(isBgmiProfile(other), isFalse);
+    expect(packageForProfile(other), equals('com.pubg.imobile'));
   });
 
   test('memoryBar renders within bounds', () {
