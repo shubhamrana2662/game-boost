@@ -35,7 +35,7 @@ class GameProfile {
     this.maxFps = false,
     this.maxHz = false,
     this.bgmiTurbo = false,
-    this.fpsTarget = 0,
+    int fpsTarget = 0,
     this.timesBoosted = 0,
     this.lastBoostedAt = 0,
   })  : patterns = patterns != null ? List.of(patterns) : [],

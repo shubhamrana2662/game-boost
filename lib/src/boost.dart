@@ -195,6 +195,8 @@ List<String> hzRestoreArgs() {
   ];
 }
 
+const String kBgmiPackage = 'com.pubg.imobile';
+
 List<String> bgmiTurboArgs(String package) {
   // Extra BGMI processing bundle: top scheduling bucket + dexopt for speed
   // + background-restriction OFF + battery-optimisation OFF + high-priority
