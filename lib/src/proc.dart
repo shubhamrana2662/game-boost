@@ -10,27 +10,106 @@
 
 import 'dart:io';
 
+import 'game_library.dart';
 import 'models.dart';
 
 const String _PROC = '/proc';
 
-/// Full scan of /proc: returns every readable process.
+/// Full scan of running processes and installed apps:
+/// 1. Tries /proc direct listing (works on rooted devices and Linux)
+/// 2. Falls back to shell `ps -A` (works on non-rooted Android)
+/// 3. Detects installed user packages via `pm list packages -3`
 Future<List<ProcessSummary>> scanProcesses() async {
   final result = <ProcessSummary>[];
+  final seenNames = <String>{};
+
+  // 1. Direct /proc traversal (fast, works if root or older OS)
   try {
     await for (final entity in Directory(_PROC).list()) {
-      if (!(entity is Directory)) continue;
+      if (entity is! Directory) continue;
       final basename = entity.path.split('/').last;
       final pid = int.tryParse(basename);
       if (pid == null || pid <= 0) continue;
-      final summary = await _readProcess(pid, '${_PROC}/$basename');
-      if (summary != null) result.add(summary);
+      final summary = await _readProcess(pid, '$_PROC/$basename');
+      if (summary != null && !seenNames.contains(summary.name)) {
+        seenNames.add(summary.name);
+        result.add(summary);
+      }
     }
-  } catch (e) {
-    // /proc is not accessible (e.g. sandboxed) - callers surface a hint.
+  } catch (_) {
+    // /proc listing is restricted by SELinux on non-root Android
   }
+
+  // 2. Shell ps fallback (works across Android versions)
+  if (result.isEmpty) {
+    try {
+      final psRes = await Process.run('sh', ['-c', 'ps -A || ps -ef || ps']);
+      if (psRes.exitCode == 0 && psRes.stdout is String) {
+        final lines = (psRes.stdout as String).split('\n');
+        for (final line in lines) {
+          final trimmed = line.trim();
+          if (trimmed.isEmpty || trimmed.startsWith('USER') || trimmed.startsWith('PID')) continue;
+          final parts = trimmed.split(RegExp(r'\s+'));
+          if (parts.length >= 2) {
+            int? pid;
+            for (final part in parts) {
+              final parsed = int.tryParse(part);
+              if (parsed != null && parsed > 0) {
+                pid = parsed;
+                break;
+              }
+            }
+            final rawName = parts.last;
+            if (pid != null && rawName.isNotEmpty && !rawName.startsWith('[') && rawName != 'ps') {
+              final clean = processNameFromCmdline(rawName);
+              if (clean != 'unknown' && !seenNames.contains(clean)) {
+                seenNames.add(clean);
+                result.add(ProcessSummary(pid, clean, rawName, 0));
+              }
+            }
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  // 3. Android Package Manager scan (lists installed 3rd-party games/apps)
+  try {
+    final pmRes = await Process.run('sh', ['-c', 'pm list packages -3 || cmd package list packages -3']);
+    if (pmRes.exitCode == 0 && pmRes.stdout is String) {
+      final lines = (pmRes.stdout as String).split('\n');
+      for (final line in lines) {
+        final trimmed = line.trim();
+        if (!trimmed.startsWith('package:')) continue;
+        final pkg = trimmed.substring('package:'.length).trim();
+        if (pkg.isEmpty) continue;
+        final cleanName = _cleanPackageName(pkg);
+        if (!seenNames.contains(cleanName)) {
+          seenNames.add(cleanName);
+          result.add(ProcessSummary(0, cleanName, pkg, 0));
+        }
+      }
+    }
+  } catch (_) {}
+
   result.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
   return result;
+}
+
+String _cleanPackageName(String pkg) {
+  for (final known in KNOWN_GAMES) {
+    for (final pattern in known.patterns) {
+      if (pkg.toLowerCase().contains(pattern.toLowerCase())) {
+        return known.name;
+      }
+    }
+  }
+  final parts = pkg.split('.');
+  if (parts.length > 1) {
+    final last = parts.last;
+    if (last.length > 2) return last;
+  }
+  return pkg;
 }
 
 /// Reads /proc/<pid>/meminfo in kB.

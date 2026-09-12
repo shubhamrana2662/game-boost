@@ -21,3 +21,4 @@ Thumbs.db
 
 # Runtime data written by the app on-device (kept local, never committed)
 *.json.tmp
+*.apk

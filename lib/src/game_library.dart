@@ -13,14 +13,16 @@ class KnownGame {
 }
 
 const List<KnownGame> KNOWN_GAMES = const [
-  const KnownGame('Genshin Impact', const ['genshin']),
-  const KnownGame('Honkai: Star Rail', const ['honkaistarrail', 'starrail']),
-  const KnownGame('Zenless Zone Zero', const ['zenless', 'zzz']),
-  const KnownGame('Mobile Legends: Bang Bang', const ['mobilelegends', 'mlbb', 'moonton']),
-  const KnownGame('Free Fire MAX', const ['freefire', 'ffes']),
-  const KnownGame('PUBG Mobile', const ['pubg', 'pubgm']),
+  const KnownGame('Battlegrounds Mobile India (BGMI)', const ['pubg.imobile', 'bgmi', 'battlegrounds', 'krafton']),
+  const KnownGame('Free Fire / Free Fire MAX', const ['dts.freefireth', 'dts.freefiremax', 'freefire', 'ffes']),
+  const KnownGame('PUBG Mobile', const ['tencent.ig', 'pubg', 'pubgm', 'vng.pubgmobile']),
+  const KnownGame('Call of Duty Mobile', const ['activision.callofduty.shooter', 'cod_m', 'callofduty', 'call_of_duty', 'codm']),
+  const KnownGame('Call of Duty: Warzone Mobile', const ['activision.callofduty.warzone', 'warzone', 'warzonemobile']),
+  const KnownGame('Genshin Impact', const ['mihoyo.genshinimpact', 'genshin']),
+  const KnownGame('Honkai: Star Rail', const ['honkaistarrail', 'starrail', 'hkrpg']),
+  const KnownGame('Zenless Zone Zero', const ['zenless', 'zzz', 'nap']),
+  const KnownGame('Mobile Legends: Bang Bang', const ['mobile.legends', 'mobilelegends', 'mlbb', 'moonton']),
   const KnownGame('PUBG: New State', const ['newstate', 'pubg_new_state']),
-  const KnownGame('Call of Duty Mobile', const ['cod_m', 'callofduty', 'call_of_duty', 'codm']),
   const KnownGame('Clash Royale', const ['clashroyale']),
   const KnownGame('Clash of Clans', const ['clashofclans', 'clash_of_clans']),
   const KnownGame('Brawl Stars', const ['brawlstars', 'brawl_stars']),

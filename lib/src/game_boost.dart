@@ -34,16 +34,26 @@ class _GameBoostState extends State<GameBoostApp> implements GameBoostController
   bool _scanning = false;
   bool _loaded = false;
 
+  @override
+  void initState() {
+    super.initState();
+    unawaited(initAsync());
+  }
+
   // ------------------------------------------------------------------ build
   @override
   Widget build(BuildContext context) {
-    if (!_loaded) {
-      unawaited(initAsync());
-    }
     return MaterialApp(
       title: 'Game Boost',
+      theme: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: const Color(0xFF0F111A),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF181B28),
+          elevation: 0,
+        ),
+      ),
       home: Scaffold(
-        appBar: AppBar(title: const Text('Game Boost')),
+        appBar: AppBar(title: const Text('Game Boost', style: TextStyle(fontWeight: FontWeight.bold))),
         body: _body(),
       ),
     );
@@ -118,6 +128,14 @@ class _GameBoostState extends State<GameBoostApp> implements GameBoostController
       seen.add(proc.name);
       app.candidates.add(proc);
       if (app.candidates.length >= 60) break;
+    }
+    // Fallback: If no processes were readable, suggest popular games from KNOWN_GAMES
+    if (app.candidates.isEmpty) {
+      for (final known in KNOWN_GAMES) {
+        if (_findGame(known.name) != null) continue;
+        app.candidates.add(ProcessSummary(0, known.name, known.patterns.first, 0));
+        if (app.candidates.length >= 15) break;
+      }
     }
   }
 
@@ -232,7 +250,7 @@ class _GameBoostState extends State<GameBoostApp> implements GameBoostController
 
   @override
   void openEdit(String gameName) {
-    app.editingName = gameName;
+    app.editingName = gameName.isEmpty ? null : gameName;
     app.screen = 'edit';
     setState(() {});
   }
@@ -259,15 +277,23 @@ class _GameBoostState extends State<GameBoostApp> implements GameBoostController
       toast('Already added: ${proc.name}');
       return;
     }
+    var patterns = [proc.name];
+    for (final known in KNOWN_GAMES) {
+      if (known.name.toLowerCase() == proc.name.toLowerCase() ||
+          known.patterns.any((p) => proc.cmdline.toLowerCase().contains(p))) {
+        patterns = List.of(known.patterns);
+        break;
+      }
+    }
     app.games.add(GameProfile(
       name: proc.name,
-      patterns: [proc.name],
-      priority: 3,
+      patterns: patterns,
+      priority: 4,
       autoBoost: true,
       detected: true,
     ));
     unawaited(saveData());
-    toast('Added ${proc.name} - boost will auto-apply while it runs.');
+    toast('✅ Added ${proc.name} to My Games!');
     setState(() {});
   }
 
@@ -282,11 +308,11 @@ class _GameBoostState extends State<GameBoostApp> implements GameBoostController
       app.games.add(GameProfile(
         name: known.name,
         patterns: List.of(known.patterns),
-        priority: 3,
+        priority: 4,
         autoBoost: true,
       ));
       unawaited(saveData());
-      toast('Added ${known.name} (auto-boost enabled).');
+      toast('✅ Added ${known.name} to My Games!');
       setState(() {});
       return;
     }

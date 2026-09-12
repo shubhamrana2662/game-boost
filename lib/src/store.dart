@@ -5,7 +5,15 @@
 
 import 'dart:io';
 
-const String _DATA_FILE = 'game_boost_data.json';
+String _getDataFilePath() {
+  try {
+    final temp = Directory.systemTemp.path;
+    if (temp.isNotEmpty && temp != '/') {
+      return '$temp/game_boost_data.json';
+    }
+  } catch (_) {}
+  return 'game_boost_data.json';
+}
 
 /// ---------------------------------------------------------------- encode ---
 String jsonEncode(Object? value) {
@@ -271,24 +279,39 @@ class _JsonParser {
 }
 
 /// ------------------------------------------------------------ persistence ---
+Map<String, Object?> _inMemoryCache = {};
+
 Future<Map<String, Object?>> loadJson() async {
   try {
-    final file = File(_DATA_FILE);
-    if (!await file.exists()) return {};
+    final file = File(_getDataFilePath());
+    if (!await file.exists()) {
+      final fallback = File('game_boost_data.json');
+      if (await fallback.exists()) {
+        final text = await fallback.readAsString();
+        final root = jsonDecode(text);
+        if (root is Map) {
+          _inMemoryCache = Map<String, Object?>.from(root);
+          return _inMemoryCache;
+        }
+      }
+      return _inMemoryCache;
+    }
     final text = await file.readAsString();
     final root = jsonDecode(text);
-    if (root is! Map) return {};
-    return root as Map<String, Object?>;
+    if (root is! Map) return _inMemoryCache;
+    _inMemoryCache = Map<String, Object?>.from(root);
+    return _inMemoryCache;
   } catch (e) {
-    return {};
+    return _inMemoryCache;
   }
 }
 
 Future<void> saveJson(Map<String, Object?> root) async {
+  _inMemoryCache = Map<String, Object?>.from(root);
   try {
-    final file = File(_DATA_FILE);
+    final file = File(_getDataFilePath());
     await file.writeAsString(jsonEncode(root));
   } catch (e) {
-    // Disk writes can be restricted; the in-memory state still works.
+    // Disk writes can be restricted on some devices; _inMemoryCache still holds the data.
   }
 }
