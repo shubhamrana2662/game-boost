@@ -32,6 +32,20 @@ jobs:
         run: |
           flutter create . --platforms=android --org com.gameboost
           rm -f test/widget_test.dart
+          python3 -c "
+          path = 'android/app/src/main/AndroidManifest.xml'
+          with open(path, 'r') as f:
+              c = f.read()
+          perms = '''
+              <uses-permission android:name=\"android.permission.KILL_BACKGROUND_PROCESSES\" />
+              <uses-permission android:name=\"android.permission.QUERY_ALL_PACKAGES\" />
+              <uses-permission android:name=\"android.permission.WAKE_LOCK\" />
+              <uses-permission android:name=\"android.permission.FOREGROUND_SERVICE\" />
+          '''
+          c = c.replace('<application', perms + '    <application')
+          with open(path, 'w') as f:
+              f.write(c)
+          "
 
       - name: Resolve packages
         run: flutter pub get

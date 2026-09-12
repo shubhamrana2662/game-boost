@@ -91,13 +91,39 @@ List<String> lowerPriorityArgs(int pid) {
 }
 
 /// Runs one CLI command and returns true on exit code 0.
+/// Automatically attempts root (`su`) and Shizuku (`rish`) privilege escalation
+/// when the standard unprivileged execution is restricted by the OS sandbox.
 Future<bool> runCommand(List<String> argv) async {
+  if (argv.isEmpty) return false;
+
+  // 1. Try standard unprivileged execution first
   try {
     final result = await Process.run(argv.first, argv.sublist(1));
-    return result.exitCode == 0;
-  } catch (e) {
-    return false;
-  }
+    if (result.exitCode == 0) return true;
+  } catch (_) {}
+
+  // 2. OS Bypass Attempt 1: Root execution via `su -c` (bypasses SELinux / OS sandbox)
+  try {
+    final fullCmd = argv.join(' ');
+    final suResult = await Process.run('su', ['-c', fullCmd]);
+    if (suResult.exitCode == 0) return true;
+  } catch (_) {}
+
+  // 3. OS Bypass Attempt 2: Elevated ADB / Shizuku shell via `rish -c`
+  try {
+    final fullCmd = argv.join(' ');
+    final rishResult = await Process.run('rish', ['-c', fullCmd]);
+    if (rishResult.exitCode == 0) return true;
+  } catch (_) {}
+
+  // 4. OS Bypass Attempt 3: Shizuku binary path in /data/local/tmp
+  try {
+    final fullCmd = argv.join(' ');
+    final localRish = await Process.run('/data/local/tmp/rish', ['-c', fullCmd]);
+    if (localRish.exitCode == 0) return true;
+  } catch (_) {}
+
+  return false;
 }
 
 /// Applies [profile]'s boost to whatever is currently running.
